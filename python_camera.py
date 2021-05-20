@@ -4,6 +4,10 @@ import cv2
 import PIL.Image, PIL.ImageTk
 from tkinter import font
 import time
+import boto3
+BUCKET='inboxgowhich'
+OBJECT_NAME='tempFace.png'
+DELAY=500
 
 
 class Application(tk.Frame):
@@ -43,7 +47,7 @@ class Application(tk.Frame):
         # Canvas Update
         # ---------------------------------------------------------
 
-        self.delay = 15 #[mili seconds]
+        self.delay = DELAY #[mili seconds]
         self.update()
 
 
@@ -65,19 +69,17 @@ class Application(tk.Frame):
         self.frame_btn.place( x=10, y=550 )
         self.frame_btn.configure( width=self.width + 30, height=120 )
         self.frame_btn.grid_propagate( 0 )
-
+        '''
         #Snapshot Button
         self.btn_snapshot = tk.Button( self.frame_btn, text='Snapshot', font=self.font_btn_big)
         self.btn_snapshot.configure(width = 15, height = 1, command=self.press_snapshot_button)
         self.btn_snapshot.grid(column=0, row=0, padx=30, pady= 10)
+        '''
 
         # Close
         self.btn_close = tk.Button( self.frame_btn, text='Close', font=self.font_btn_big )
         self.btn_close.configure( width=15, height=1, command=self.press_close_button )
-        self.btn_close.grid( column=1, row=0, padx=20, pady=10 )
-
-
-
+        self.btn_close.grid( column=0, row=0, padx=20, pady=10 )
 
     def update(self):
         #Get a frame from the video source
@@ -88,6 +90,26 @@ class Application(tk.Frame):
 
         #self.photo -> Canvas
         self.canvas1.create_image(0,0, image= self.photo, anchor = tk.NW)
+
+        frame1 = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        cv2.imwrite( OBJECT_NAME,
+                     cv2.cvtColor( frame1, cv2.COLOR_BGR2RGB ) )
+
+        s3 = boto3.resource('s3')
+
+        bucket = s3.Bucket(BUCKET)
+        bucket.upload_file(OBJECT_NAME, OBJECT_NAME)
+
+        s3client = boto3.client('s3')
+
+        url = s3client.generate_presigned_url(
+        ClientMethod = 'get_object',
+        Params = {'Bucket' : BUCKET, 'Key' : OBJECT_NAME},
+        ExpiresIn = 600,
+        HttpMethod = 'GET')
+
+        print('-----\n{}\n-----'.format(url))
 
         self.master.after(self.delay, self.update)
 
