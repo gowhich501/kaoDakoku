@@ -5,10 +5,14 @@ import PIL.Image, PIL.ImageTk
 from tkinter import font
 import time
 import boto3
+import requests
+
 BUCKET='inboxgowhich'
 OBJECT_NAME='tempFace.png'
 DELAY=500
-
+BASE_URL = "https://japaneast.api.cognitive.microsoft.com/face/v1.0/"
+SUBSCRIPTION_KEY  = "5fe7753fda7944b9bceaa338a19353d9"
+GROUP_NAME = "dakoku"
 
 class Application(tk.Frame):
     def __init__(self,master, video_source=0):
@@ -49,7 +53,6 @@ class Application(tk.Frame):
 
         self.delay = DELAY #[mili seconds]
         self.update()
-
 
     def create_widgets(self):
 
@@ -95,7 +98,19 @@ class Application(tk.Frame):
 
         cv2.imwrite( OBJECT_NAME,
                      cv2.cvtColor( frame1, cv2.COLOR_BGR2RGB ) )
+        faceId = self.detectFace()
+        person = self.identifyPerson(faceId["faceId"]) 
 
+        if person["candidates"]: #学習データに候補があれば 
+            personId = person["candidates"][0]["personId"] 
+            print("personId " + personId) 
+            personInfo = self.getPersonInfoByPersonId(personId) 
+            print(personInfo["name"]) 
+            print(personInfo["userData"]) 
+        else: 
+            print ("No candidates found")
+
+        """
         s3 = boto3.resource('s3')
 
         bucket = s3.Bucket(BUCKET)
@@ -110,7 +125,7 @@ class Application(tk.Frame):
         HttpMethod = 'GET')
 
         print('-----\n{}\n-----'.format(url))
-
+        """
         self.master.after(self.delay, self.update)
 
     def press_snapshot_button(self):
@@ -126,9 +141,66 @@ class Application(tk.Frame):
         self.master.destroy()
         self.vcap.release()
 
+    def detectFace(self):
+        end_point = BASE_URL + "detect?returnFaceId=true&recognitionModel=recognition_04&returnRecognitionModel=false&detectionModel=detection_03&faceIdTimeToLive=600"
+        headers = {
+            "Ocp-Apim-Subscription-Key" :SUBSCRIPTION_KEY,
+            "Content-Type": "application/octet-stream",
+            "Host": "japaneast.api.cognitive.microsoft.com"
+        }
+        # 画像ファイルを開く
+        f = open(OBJECT_NAME, "rb")
+        reqbody = f.read()
+        f.close()
 
+        r = requests.post(
+            end_point,
+            data = reqbody,
+            #json = payload,
+            headers = headers
+        )
+        try:
+            faceId = r.json()[0]["faceId"]
+            print ("faceId Found:{}".format(faceId))
+            return r.json()[0]
+        except Exception as e:
+            print("faceId not found:{}".format(e))
+        return None
 
+    def identifyPerson(self,faceId):
+        end_point = BASE_URL + "identify"
+        headers = {
+            "Ocp-Apim-Subscription-Key" :SUBSCRIPTION_KEY,
+            "Host": "japaneast.api.cognitive.microsoft.com"
+        }
+        faceIds = [faceId]
+        payload = {
+            "faceIds" :faceIds,
+            "personGroupId" :GROUP_NAME,
+            "maxNumOfCandidatesReturned": 1,
+            "confidenceThreshold": 0.5
+        }
+        r = requests.post(
+            end_point,
+            json = payload,
+            headers = headers
+        )
+        print(r.json())
 
+        return r.json()[0]
+
+    def getPersonInfoByPersonId(self,personId):
+        end_point = BASE_URL + "persongroups/"+ GROUP_NAME +"/persons/" + personId
+        headers = {
+            "Ocp-Apim-Subscription-Key" :SUBSCRIPTION_KEY,
+            "Host": "japaneast.api.cognitive.microsoft.com"
+        }
+        r = requests.get(
+            end_point,
+            headers = headers
+        )
+        print(r.json())
+        return r.json()
 
 def main():
     root = tk.Tk()
