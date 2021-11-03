@@ -1,6 +1,7 @@
 from test import detectFace
 import tkinter as tk
 from tkinter import ttk
+import tkinter.messagebox as tkmsg
 import cv2
 import PIL.Image, PIL.ImageTk
 from tkinter import font
@@ -128,9 +129,9 @@ class Application(tk.Frame):
                     print("personId " + personId) 
                     personInfo = self.getPersonInfoByPersonId(personId) 
                     self.dakoku(personInfo)
-
-            #else: 
-            #    print ("No candidates found")
+                else: 
+                    print ("No candidates found")
+                    tkmsg.showwarning(title="警告",message="あなたの顔は登録されていません")
                 
         jobId = self.master.after(self.delay, self.update)
         """
@@ -152,11 +153,11 @@ class Application(tk.Frame):
         
     def dakoku(self, personInfo):
         print(personInfo["name"]) 
-        print(personInfo["userData"]) 
+        #print(personInfo["userData"]) 
 
         userData = json.loads(personInfo["userData"])
-        print(userData["id"])
-        print(userData["pw"])
+        #print(userData["id"])
+        #print(userData["pw"])
         '''
         # 認識した人の氏名でエゴサするテスト
         driver = webdriver.Chrome("C:/Goichi/App/chromedriver/chromedriver.exe")
@@ -175,14 +176,13 @@ class Application(tk.Frame):
         browser.find_element_by_id('TxtPass').send_keys(userData["pw"])
         browser.find_element_by_id('BtnLogin').click()
         browser.get('https://ini5a.kinjirou-asp.jp/TDAD1702/KinjirouWeb/Kinjirou/sinsei/kwsfrk/kwsfrkinp.aspx?Atype=11')
-        #browser.find_element_by_id('Kwsdak1_TxtStartTime1').send_keys("9:00")
         browser.find_element_by_id('Kwsdak1_TxtEndTime1').send_keys("18:00")
         browser.find_element_by_id('TxtRiyu').send_keys("顔認識打刻のテストです")
-        #browser.find_element_by_id('BtnInp').click()
-        #alert = browser.switch_to_alert()
-        #alert.accept()
-        #browser.close()
-        #browser.quit()
+        browser.find_element_by_id('BtnInp').click()
+        alert = browser.switch_to_alert()
+        alert.accept()
+        browser.close()
+        browser.quit()
 
     def press_dakoku_button(self):
         global faceId
